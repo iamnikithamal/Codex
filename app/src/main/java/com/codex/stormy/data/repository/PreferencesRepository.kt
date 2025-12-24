@@ -23,7 +23,6 @@ class PreferencesRepository(private val context: Context) {
         val LINE_NUMBERS = booleanPreferencesKey("line_numbers")
         val WORD_WRAP = booleanPreferencesKey("word_wrap")
         val AUTO_SAVE = booleanPreferencesKey("auto_save")
-        val CODE_AUTOCOMPLETION = booleanPreferencesKey("code_autocompletion")
 
         // API Keys for different providers
         val API_KEY = stringPreferencesKey("api_key") // DeepInfra (legacy)
@@ -68,10 +67,6 @@ class PreferencesRepository(private val context: Context) {
 
     val autoSave: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.AUTO_SAVE] ?: true
-    }
-
-    val codeAutocompletion: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[PreferenceKeys.CODE_AUTOCOMPLETION] ?: true
     }
 
     // Legacy API key (DeepInfra)
@@ -156,12 +151,6 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setAutoSave(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.AUTO_SAVE] = enabled
-        }
-    }
-
-    suspend fun setCodeAutocompletion(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.CODE_AUTOCOMPLETION] = enabled
         }
     }
 

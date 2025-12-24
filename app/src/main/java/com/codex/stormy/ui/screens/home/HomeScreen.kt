@@ -1,5 +1,6 @@
 package com.codex.stormy.ui.screens.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -10,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -170,63 +172,103 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    if (isSelectionMode) {
+                    AnimatedVisibility(
+                        visible = isSelectionMode,
+                        enter = fadeIn() + slideInVertically(),
+                        exit = fadeOut() + slideOutVertically()
+                    ) {
                         IconButton(onClick = {
                             selectedProjects.clear()
                             isSelectionMode = false
                         }) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
-                                contentDescription = "Cancel selection"
+                                contentDescription = "Cancel selection",
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 },
                 title = {
-                    if (isSelectionMode) {
-                        Text(
-                            text = "${selectedProjects.size} selected",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    } else {
-                        Text(
-                            text = context.getString(R.string.home_title),
-                            style = MaterialTheme.typography.headlineSmall
-                        )
+                    AnimatedContent(
+                        targetState = isSelectionMode,
+                        transitionSpec = {
+                            fadeIn() togetherWith fadeOut()
+                        },
+                        label = "title_animation"
+                    ) { selectionActive ->
+                        if (selectionActive) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "${selectedProjects.size}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = if (selectedProjects.size == 1) "project selected" else "projects selected",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = context.getString(R.string.home_title),
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
                     }
                 },
                 actions = {
-                    if (isSelectionMode) {
-                        // Select all action
-                        IconButton(onClick = {
-                            if (selectedProjects.size == uiState.projects.size) {
-                                selectedProjects.clear()
-                            } else {
-                                selectedProjects.clear()
-                                selectedProjects.addAll(uiState.projects.map { it.id })
+                    AnimatedVisibility(
+                        visible = isSelectionMode,
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut()
+                    ) {
+                        Row {
+                            // Select all / Deselect all action
+                            IconButton(onClick = {
+                                if (selectedProjects.size == uiState.projects.size) {
+                                    selectedProjects.clear()
+                                } else {
+                                    selectedProjects.clear()
+                                    selectedProjects.addAll(uiState.projects.map { it.id })
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.SelectAll,
+                                    contentDescription = if (selectedProjects.size == uiState.projects.size) {
+                                        "Deselect all"
+                                    } else {
+                                        "Select all"
+                                    },
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        }) {
-                            Icon(
-                                imageVector = Icons.Outlined.SelectAll,
-                                contentDescription = "Select all"
-                            )
-                        }
-                        // Delete selected action
-                        IconButton(onClick = {
-                            // Delete all selected projects
-                            selectedProjects.forEach { projectId ->
-                                viewModel.deleteProject(projectId)
+                            // Delete selected action
+                            IconButton(onClick = {
+                                // Delete all selected projects
+                                selectedProjects.forEach { projectId ->
+                                    viewModel.deleteProject(projectId)
+                                }
+                                selectedProjects.clear()
+                                isSelectionMode = false
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = "Delete selected",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
-                            selectedProjects.clear()
-                            isSelectionMode = false
-                        }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = "Delete selected",
-                                tint = MaterialTheme.colorScheme.error
-                            )
                         }
-                    } else {
+                    }
+                    AnimatedVisibility(
+                        visible = !isSelectionMode,
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut()
+                    ) {
                         IconButton(onClick = onSettingsClick) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
@@ -236,11 +278,7 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (isSelectionMode) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -604,7 +642,8 @@ private fun ProjectsList(
 }
 
 /**
- * Swipeable project card with swipe-to-delete and selection support
+ * Swipeable project card with swipe-to-delete and modern selection support
+ * Features a refined, professional selection UI with subtle animations
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -630,11 +669,21 @@ private fun SwipeableProjectCard(
         }
     )
 
-    // Animate selection scale
+    // Smooth scale animation for selection
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 0.95f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        targetValue = if (isSelected) 0.98f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "selection_scale"
+    )
+
+    // Border width animation for selection
+    val borderWidth by animateFloatAsState(
+        targetValue = if (isSelected) 2f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "border_width"
     )
 
     SwipeToDismissBox(
@@ -643,20 +692,30 @@ private fun SwipeableProjectCard(
         enableDismissFromStartToEnd = false,
         enableDismissFromEndToStart = !isSelectionMode,
         backgroundContent = {
-            // Delete background
+            // Delete background with gradient effect
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onErrorContainer
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Delete",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
             }
         },
         content = {
@@ -669,13 +728,20 @@ private fun SwipeableProjectCard(
                     ),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = when {
+                        isSelected -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        else -> MaterialTheme.colorScheme.surfaceContainerLow
                     }
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                border = if (isSelected) {
+                    androidx.compose.foundation.BorderStroke(
+                        width = borderWidth.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else null,
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (isSelected) 2.dp else 0.dp
+                )
             ) {
                 Row(
                     modifier = Modifier
@@ -683,34 +749,50 @@ private fun SwipeableProjectCard(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Selection indicator or folder icon
-                    if (isSelectionMode) {
-                        Icon(
-                            imageVector = if (isSelected) {
-                                Icons.Outlined.CheckCircle
-                            } else {
-                                Icons.Outlined.RadioButtonUnchecked
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = if (isSelected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
+                    // Modern selection indicator with folder icon
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                when {
+                                    isSelected -> MaterialTheme.colorScheme.primary
+                                    isSelectionMode -> MaterialTheme.colorScheme.surfaceContainerHigh
+                                    else -> MaterialTheme.colorScheme.primaryContainer
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = isSelected,
+                            enter = scaleIn(spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
+                            exit = scaleOut(spring(stiffness = Spring.StiffnessLow)) + fadeOut()
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.FolderOpen,
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = "Selected",
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = !isSelected,
+                            enter = scaleIn(spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
+                            exit = scaleOut(spring(stiffness = Spring.StiffnessLow)) + fadeOut()
+                        ) {
+                            Icon(
+                                imageVector = if (isSelectionMode) {
+                                    Icons.Outlined.RadioButtonUnchecked
+                                } else {
+                                    Icons.Outlined.FolderOpen
+                                },
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                modifier = Modifier.size(if (isSelectionMode) 28.dp else 24.dp),
+                                tint = if (isSelectionMode) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                }
                             )
                         }
                     }
@@ -721,23 +803,37 @@ private fun SwipeableProjectCard(
                         Text(
                             text = project.name,
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (project.description.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = project.description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = project.formattedLastOpened,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            }
                         )
                     }
 

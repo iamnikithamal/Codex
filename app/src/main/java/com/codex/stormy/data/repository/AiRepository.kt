@@ -99,29 +99,42 @@ class AiRepository(
 
     /**
      * Get a helpful error message for provider configuration issues
+     * DeepInfra works without API key using free public endpoint
      */
     private suspend fun getProviderErrorMessage(provider: AiProvider): String {
-        val apiKey = getApiKeyForProvider(provider)
-        return if (apiKey.isBlank()) {
-            "API key for ${provider.displayName} is not configured. Please add your API key in Settings."
-        } else {
-            "Failed to connect to ${provider.displayName}. Please check your API key and network connection."
+        return when (provider) {
+            AiProvider.DEEPINFRA -> {
+                "Failed to connect to DeepInfra. Please check your network connection."
+            }
+            else -> {
+                val apiKey = getApiKeyForProvider(provider)
+                if (apiKey.isBlank()) {
+                    "API key for ${provider.displayName} is not configured. Please add your API key in Settings."
+                } else {
+                    "Failed to connect to ${provider.displayName}. Please check your API key and network connection."
+                }
+            }
         }
     }
 
     /**
      * Check if API key is configured for the default provider (DeepInfra)
+     * DeepInfra works without API key using free public endpoint
      */
     suspend fun hasApiKey(): Boolean {
-        val apiKey = preferencesRepository.apiKey.first()
-        return apiKey.isNotBlank()
+        // DeepInfra works without API key
+        return true
     }
 
     /**
      * Check if API key is configured for a specific provider
+     * DeepInfra works without API key using free public endpoint
      */
     suspend fun hasApiKeyForProvider(provider: AiProvider): Boolean {
-        return getApiKeyForProvider(provider).isNotBlank()
+        return when (provider) {
+            AiProvider.DEEPINFRA -> true // Works without API key
+            else -> getApiKeyForProvider(provider).isNotBlank()
+        }
     }
 
     /**

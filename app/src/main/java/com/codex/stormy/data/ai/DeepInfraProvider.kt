@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,14 +18,16 @@ import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
  * AI provider implementation for DeepInfra API
- * Mirrors the gpt4free Python implementation in Kotlin
+ * Uses the free/public DeepInfra chat endpoint (no API key required)
+ * Based on gpt4free implementation patterns
  */
 class DeepInfraProvider(
-    private val apiKey: String
+    private val apiKey: String = ""
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -30,16 +35,49 @@ class DeepInfraProvider(
         isLenient = true
     }
 
+    // Cookie jar for session management
+    private val cookieJar = object : CookieJar {
+        private val cookies = mutableMapOf<String, MutableList<Cookie>>()
+
+        override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+            this.cookies.getOrPut(url.host) { mutableListOf() }.apply {
+                clear()
+                addAll(cookies)
+            }
+        }
+
+        override fun loadForRequest(url: HttpUrl): List<Cookie> {
+            return cookies[url.host] ?: emptyList()
+        }
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .cookieJar(cookieJar)
+        .followRedirects(true)
         .build()
 
-    private val baseUrl = AiProvider.DEEPINFRA.baseUrl
+    // Use the free chat endpoint by default, fall back to API if key is provided
+    private val useApiEndpoint: Boolean get() = apiKey.isNotBlank()
+    private val baseUrl: String get() = if (useApiEndpoint) {
+        AiProvider.DEEPINFRA.baseUrl
+    } else {
+        "https://api.deepinfra.com/v1/openai"
+    }
 
     companion object {
-        private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        private const val ORIGIN = "https://deepinfra.com"
+        private const val REFERER = "https://deepinfra.com/"
+    }
+
+    /**
+     * Generate a unique chat ID for session tracking
+     */
+    private fun generateChatId(): String {
+        return UUID.randomUUID().toString()
     }
 
     /**
@@ -65,14 +103,26 @@ class DeepInfraProvider(
         val requestBody = json.encodeToString(ChatCompletionRequest.serializer(), request)
             .toRequestBody("application/json".toMediaType())
 
-        val httpRequest = Request.Builder()
+        // Build request with appropriate headers based on whether we're using API key or free endpoint
+        val httpRequestBuilder = Request.Builder()
             .url("$baseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "text/event-stream")
             .addHeader("User-Agent", USER_AGENT)
             .post(requestBody)
-            .build()
+
+        // Add authentication and origin headers
+        if (useApiEndpoint) {
+            httpRequestBuilder.addHeader("Authorization", "Bearer $apiKey")
+        } else {
+            // Free endpoint requires these headers for proper operation
+            httpRequestBuilder
+                .addHeader("Origin", ORIGIN)
+                .addHeader("Referer", REFERER)
+                .addHeader("X-Deepinfra-Source", "web-page")
+        }
+
+        val httpRequest = httpRequestBuilder.build()
 
         val eventSourceListener = object : EventSourceListener() {
             private var accumulatedContent = StringBuilder()
@@ -208,13 +258,25 @@ class DeepInfraProvider(
             val requestBody = json.encodeToString(ChatCompletionRequest.serializer(), request)
                 .toRequestBody("application/json".toMediaType())
 
-            val httpRequest = Request.Builder()
+            // Build request with appropriate headers based on whether we're using API key or free endpoint
+            val httpRequestBuilder = Request.Builder()
                 .url("$baseUrl/chat/completions")
-                .addHeader("Authorization", "Bearer $apiKey")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("User-Agent", USER_AGENT)
                 .post(requestBody)
-                .build()
+
+            // Add authentication and origin headers
+            if (useApiEndpoint) {
+                httpRequestBuilder.addHeader("Authorization", "Bearer $apiKey")
+            } else {
+                // Free endpoint requires these headers for proper operation
+                httpRequestBuilder
+                    .addHeader("Origin", ORIGIN)
+                    .addHeader("Referer", REFERER)
+                    .addHeader("X-Deepinfra-Source", "web-page")
+            }
+
+            val httpRequest = httpRequestBuilder.build()
 
             val response = client.newCall(httpRequest).execute()
 

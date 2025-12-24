@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -124,6 +125,7 @@ fun AssetManagerDrawer(
     var showAddMenu by remember { mutableStateOf(false) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<AssetFile?>(null) }
+    var showOptimizeDialog by remember { mutableStateOf<AssetFile?>(null) }
     var expandedSections by remember { mutableStateOf(setOf(AssetType.IMAGE, AssetType.FONT, AssetType.OTHER)) }
 
     // Load assets
@@ -316,7 +318,8 @@ fun AssetManagerDrawer(
                                             clipboardManager.setText(AnnotatedString(asset.relativePath))
                                             onCopyPath(asset.relativePath)
                                         },
-                                        onDelete = { showDeleteDialog = it }
+                                        onDelete = { showDeleteDialog = it },
+                                        onOptimize = { showOptimizeDialog = it }
                                     )
                                 }
                             } else {
@@ -329,7 +332,8 @@ fun AssetManagerDrawer(
                                             clipboardManager.setText(AnnotatedString(asset.relativePath))
                                             onCopyPath(asset.relativePath)
                                         },
-                                        onDelete = { showDeleteDialog = asset }
+                                        onDelete = { showDeleteDialog = asset },
+                                        onOptimize = { showOptimizeDialog = asset }
                                     )
                                 }
                             }
@@ -459,6 +463,19 @@ fun AssetManagerDrawer(
                 TextButton(onClick = { showDeleteDialog = null }) {
                     Text(context.getString(R.string.action_cancel))
                 }
+            }
+        )
+    }
+
+    // Image optimization dialog
+    showOptimizeDialog?.let { asset ->
+        ImageOptimizationDialog(
+            imageFile = File(asset.path),
+            projectPath = projectPath,
+            onDismiss = { showOptimizeDialog = null },
+            onOptimized = { optimizedFile ->
+                loadAssets()
+                onAssetAdded()
             }
         )
     }
@@ -601,7 +618,8 @@ private fun AssetGridSection(
     projectPath: String,
     onAssetClick: (AssetFile) -> Unit,
     onCopyPath: (AssetFile) -> Unit,
-    onDelete: (AssetFile) -> Unit
+    onDelete: (AssetFile) -> Unit,
+    onOptimize: (AssetFile) -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -619,7 +637,8 @@ private fun AssetGridSection(
                 projectPath = projectPath,
                 onClick = { onAssetClick(asset) },
                 onCopyPath = { onCopyPath(asset) },
-                onDelete = { onDelete(asset) }
+                onDelete = { onDelete(asset) },
+                onOptimize = { onOptimize(asset) }
             )
         }
     }
@@ -632,7 +651,8 @@ private fun AssetGridItem(
     projectPath: String,
     onClick: () -> Unit,
     onCopyPath: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOptimize: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -687,6 +707,19 @@ private fun AssetGridItem(
             expanded = showMenu,
             onDismissRequest = { showMenu = false }
         ) {
+            // Show optimize option only for images
+            if (asset.type == AssetType.IMAGE) {
+                DropdownMenuItem(
+                    text = { Text("Optimize") },
+                    onClick = {
+                        showMenu = false
+                        onOptimize()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.PhotoSizeSelectLarge, contentDescription = null)
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text(context.getString(R.string.assets_copy_path)) },
                 onClick = {
@@ -727,7 +760,8 @@ private fun AssetListItem(
     projectPath: String,
     onClick: () -> Unit,
     onCopyPath: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOptimize: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -808,6 +842,19 @@ private fun AssetListItem(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false }
             ) {
+                // Show optimize option only for images
+                if (asset.type == AssetType.IMAGE && onOptimize != null) {
+                    DropdownMenuItem(
+                        text = { Text("Optimize") },
+                        onClick = {
+                            showMenu = false
+                            onOptimize()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.PhotoSizeSelectLarge, contentDescription = null)
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(context.getString(R.string.assets_copy_path)) },
                     onClick = {
