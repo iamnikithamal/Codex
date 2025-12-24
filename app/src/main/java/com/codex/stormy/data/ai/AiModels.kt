@@ -187,10 +187,38 @@ object OpenRouterModels {
 
 /**
  * Predefined models for Gemini
+ * Updated with latest Gemini models as of December 2025
  */
 object GeminiModels {
+    val GEMINI_2_5_FLASH = AiModel(
+        id = "gemini-2.5-flash",
+        name = "Gemini 2.5 Flash",
+        provider = AiProvider.GEMINI,
+        contextLength = 1000000,
+        supportsStreaming = true,
+        supportsToolCalls = true
+    )
+
+    val GEMINI_2_5_PRO = AiModel(
+        id = "gemini-2.5-pro",
+        name = "Gemini 2.5 Pro",
+        provider = AiProvider.GEMINI,
+        contextLength = 1000000,
+        supportsStreaming = true,
+        supportsToolCalls = true
+    )
+
+    val GEMINI_2_0_FLASH = AiModel(
+        id = "gemini-2.0-flash",
+        name = "Gemini 2.0 Flash",
+        provider = AiProvider.GEMINI,
+        contextLength = 1000000,
+        supportsStreaming = true,
+        supportsToolCalls = true
+    )
+
     val GEMINI_1_5_PRO = AiModel(
-        id = "models/gemini-1.5-pro",
+        id = "gemini-1.5-pro",
         name = "Gemini 1.5 Pro",
         provider = AiProvider.GEMINI,
         contextLength = 1000000,
@@ -199,7 +227,7 @@ object GeminiModels {
     )
 
     val GEMINI_1_5_FLASH = AiModel(
-        id = "models/gemini-1.5-flash",
+        id = "gemini-1.5-flash",
         name = "Gemini 1.5 Flash",
         provider = AiProvider.GEMINI,
         contextLength = 1000000,
@@ -207,22 +235,15 @@ object GeminiModels {
         supportsToolCalls = true
     )
 
-    val GEMINI_PRO = AiModel(
-        id = "models/gemini-pro",
-        name = "Gemini Pro",
-        provider = AiProvider.GEMINI,
-        contextLength = 32768,
-        supportsStreaming = true,
-        supportsToolCalls = true
-    )
-
     val allModels = listOf(
+        GEMINI_2_5_FLASH,
+        GEMINI_2_5_PRO,
+        GEMINI_2_0_FLASH,
         GEMINI_1_5_PRO,
-        GEMINI_1_5_FLASH,
-        GEMINI_PRO
+        GEMINI_1_5_FLASH
     )
 
-    val defaultModel = GEMINI_1_5_FLASH
+    val defaultModel = GEMINI_2_5_FLASH
 }
 
 /**
@@ -280,7 +301,7 @@ object AiModels {
             DeepInfraModels.DEEPSEEK_V3,
             OpenRouterModels.CLAUDE_3_5_SONNET,
             OpenRouterModels.GPT_4_TURBO,
-            GeminiModels.GEMINI_1_5_FLASH
+            GeminiModels.GEMINI_2_5_FLASH
         )
     }
 }

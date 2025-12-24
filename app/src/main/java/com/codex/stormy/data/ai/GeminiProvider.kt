@@ -182,15 +182,22 @@ class GeminiProvider(
 
     /**
      * Normalize model ID to ensure correct format for Gemini API
-     * Gemini API expects: models/gemini-1.5-pro
+     * The API expects model IDs in format: models/gemini-x.x-xxx
+     * But the endpoint accepts both with and without prefix
      */
     private fun normalizeModelId(modelId: String): String {
-        // If already has models/ prefix, use as-is
-        if (modelId.startsWith("models/")) {
-            return modelId
-        }
-        // Otherwise add the prefix
-        return "models/$modelId"
+        // Remove any existing prefix first
+        val cleanId = modelId.removePrefix("models/")
+
+        // Return with models/ prefix for API compatibility
+        return "models/$cleanId"
+    }
+
+    /**
+     * Get the model ID without prefix for certain API calls
+     */
+    private fun getModelIdForUrl(modelId: String): String {
+        return normalizeModelId(modelId)
     }
 
     /**
@@ -705,11 +712,14 @@ class GeminiModelService {
     companion object {
         /**
          * Recommended Gemini models for code generation
+         * Updated with latest models as of December 2025
          */
         val RECOMMENDED_MODELS = listOf(
+            "models/gemini-2.5-flash",
+            "models/gemini-2.5-pro",
+            "models/gemini-2.0-flash",
             "models/gemini-1.5-pro",
-            "models/gemini-1.5-flash",
-            "models/gemini-pro"
+            "models/gemini-1.5-flash"
         )
     }
 }
